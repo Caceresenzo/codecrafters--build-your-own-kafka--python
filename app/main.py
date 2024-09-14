@@ -10,11 +10,14 @@ def main():
     client_socket, client_address = server_socket.accept()
     
     print(f"connected: {client_address}")
+    client_socket.recv(1024)
     client_socket.send(struct.pack(
         "!ii",
-        4,
+        0,
         7
     ))
+
+    client_socket.close()
 
 
 if __name__ == "__main__":
