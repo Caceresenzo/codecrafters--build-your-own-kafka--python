@@ -93,8 +93,8 @@ class ApiVersionsResponseV4(Response):
     throttle_time_ms: int
 
     def serialize(self, writer: buffer.ByteWriter):
-        print(self.api_keys)
         writer.write_compact_array(self.api_keys, ApiVersionsResponseKeyV4.serialize)
+        writer.write_signed_int(self.throttle_time_ms)
         writer.skip_empty_tagged_field_array()
 
 

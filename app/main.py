@@ -51,7 +51,6 @@ def main():
     client_socket, client_address = server_socket.accept()
     
     print(f"connected: {client_address}")
-
     handle(client_socket)
 
     client_socket.close()
