@@ -108,9 +108,7 @@ class MessageReader:
         self._socket = socket
 
     def next(self) -> Request:
-        message_size, = struct.unpack("!i", self._socket.recv(4))
-        data = self._socket.recv(message_size)
-
+        data = self._next_message()
         reader = buffer.ByteReader(data)
 
         api_key = reader.read_signed_short()
@@ -134,6 +132,19 @@ class MessageReader:
 
         deserializer = self.DESERIALIZERS[(api_key, api_version)]
         return deserializer(header, reader)
+
+    def _next_message(self):
+        data = self._socket.recv(4)
+        if not len(data):
+            raise EOFError("could not read message size")
+
+        message_size, = struct.unpack("!i", data)
+        data = self._socket.recv(message_size)
+
+        if len(data) != message_size:
+            raise EOFError("message size does not match")
+
+        return data
 
 
 class MessageWriter:

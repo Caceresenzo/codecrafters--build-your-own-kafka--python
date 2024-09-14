@@ -36,6 +36,8 @@ target.send(encode([
     "00",  # "empty tagged field array" -> varint 0
 ]))
 
+# target.close()
+
 offset = 0
 while True:
     byte = target.recv(1)
