@@ -2,24 +2,23 @@ import dataclasses
 import typing
 
 from .. import buffer
-from .base import Request, RequestHeaderV2, Response
+from .base import RequestBody, ResponseBody
 from .error import ErrorCode
 
 
 @dataclasses.dataclass
-class ApiVersionsRequestV4(Request):
+class ApiVersionsRequestV4(RequestBody):
     client_software_name: typing.Optional[str]
     client_software_version: typing.Optional[str]
 
     @staticmethod
-    def deserialize(header: RequestHeaderV2, reader: buffer.ByteReader):
+    def deserialize(reader: buffer.ByteReader):
         client_software_name = reader.read_compact_string()
         client_software_version = reader.read_compact_string()
 
         reader.skip_empty_tagged_field_array()
 
         return ApiVersionsRequestV4(
-            header,
             client_software_name,
             client_software_version,
         )
@@ -40,7 +39,7 @@ class ApiVersionsResponseKeyV4:
 
 
 @dataclasses.dataclass
-class ApiVersionsResponseV4(Response):
+class ApiVersionsResponseV4(ResponseBody):
     error_code: ErrorCode
     api_keys: typing.List[ApiVersionsResponseKeyV4]
     throttle_time_ms: int

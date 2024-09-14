@@ -7,6 +7,9 @@ from . import varint
 
 T = typing.TypeVar("T")
 
+# debug = print
+debug = lambda *x: ...
+
 
 class ByteReader:
 
@@ -78,18 +81,23 @@ class ByteWriter:
         self._data = io.BytesIO()
 
     def write(self, bytes: bytes):
+        # debug("write", bytes)
         self._data.write(bytes)
 
     def write_signed_short(self, value: int):
+        debug("write_signed_short", value)
         self.write(struct.pack("!h", value))
 
     def write_signed_int(self, value: int):
+        debug("write_signed_int", value)
         self.write(struct.pack("!i", value))
 
     def write_signed_long(self, value: int):
+        debug("write_signed_long", value)
         self.write(struct.pack("!l", value))
 
     def write_unsigned_varint(self, value: int):
+        debug("write_unsigned_varint", value)
         varint.write_unsigned(self._data, value)
 
     def write_compact_array(
@@ -97,6 +105,8 @@ class ByteWriter:
         items: typing.List[T],
         serializer: typing.Callable[[T, "ByteWriter"], None]
     ):
+        debug("write_compact_array", items, serializer)
+
         if items is None:
             self.write_unsigned_varint(0)
             return
@@ -110,6 +120,8 @@ class ByteWriter:
         self,
         records: bytes,
     ):
+        debug("write_compact_records", records)
+
         if records is None:
             self.write_unsigned_varint(0)
             return
@@ -118,6 +130,7 @@ class ByteWriter:
         self.write(records)
 
     def skip_empty_tagged_field_array(self):
+        debug("skip_empty_tagged_field_array")
         self.write_unsigned_varint(0)
 
     @property
