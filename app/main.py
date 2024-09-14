@@ -1,5 +1,5 @@
+import os
 import socket
-import struct
 
 from . import protocol
 
@@ -7,9 +7,11 @@ PORT = 9092
 
 
 def handle(
-    message_reader: protocol.MessageReader,
-    message_writer: protocol.MessageWriter,
+    client_socket: socket.socket,
 ):
+    message_reader = protocol.MessageReader(client_socket)
+    message_writer = protocol.MessageWriter(client_socket)
+
     try:
         request = message_reader.next()
         correlation_id = request.header.correlation_id
@@ -38,10 +40,6 @@ def handle(
             correlation_id,
             response
         )
-    except EOFError as error:
-        print(f"eof: {error}")
-
-        return False
     except protocol.ProtocolError as error:
         message_writer.send_error(
             error.correlation_id,
@@ -55,14 +53,26 @@ def main():
     print(f"listen: {PORT}")
     server_socket = socket.create_server(("localhost", PORT), reuse_port=True)
 
-    client_socket, client_address = server_socket.accept()
+    client_id = 0
 
-    message_reader = protocol.MessageReader(client_socket)
-    message_writer = protocol.MessageWriter(client_socket)
+    while True:
+        client_socket, client_address = server_socket.accept()
+        client_id += 1
 
-    print(f"connected: {client_address}")
-    while handle(message_reader, message_writer):
-        pass
+        pid = os.fork()
+        if pid:
+            client_socket.close()
+            print(f"[{client_id}] connected: {client_address}")
+
+        else:
+            try:
+                while True:
+                    handle(client_socket)
+            except EOFError as error:
+                print(f"[{client_id}] eof: {error}")
+
+            client_socket.close()
+            exit(0)
 
 
 if __name__ == "__main__":
