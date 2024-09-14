@@ -3,6 +3,7 @@ import enum
 import socket
 import struct
 import typing
+import uuid
 
 from . import buffer
 
@@ -98,11 +99,111 @@ class ApiVersionsResponseV4(Response):
 
 
 @dataclasses.dataclass
+class FetchRequestTopicPartitionV16:
+
+    partition: int
+    current_leader_epoch: int
+    fetch_offset: int
+    last_fetched_epoch: int
+    log_start_offset: int
+    partition_max_bytes: int
+
+    @staticmethod
+    def deserialize(reader: buffer.ByteReader):
+        partition = reader.read_signed_int()
+        current_leader_epoch = reader.read_signed_int()
+        fetch_offset = reader.read_signed_long()
+        last_fetched_epoch = reader.read_signed_int()
+        log_start_offset = reader.read_signed_long()
+        partition_max_bytes = reader.read_signed_int()
+
+        reader.skip_empty_tagged_field_array()
+
+        return FetchRequestTopicPartitionV16(
+            partition,
+            current_leader_epoch,
+            fetch_offset,
+            last_fetched_epoch,
+            log_start_offset,
+            partition_max_bytes,
+        )
+
+
+@dataclasses.dataclass
+class FetchRequestTopicV16:
+
+    topic_id: uuid.UUID
+    partitions: typing.List[FetchRequestTopicPartitionV16]
+
+    @staticmethod
+    def deserialize(reader: buffer.ByteReader):
+        topic_id = reader.read_uuid()
+        partitions = reader.read_compact_array(FetchRequestTopicPartitionV16.deserialize)
+
+        reader.skip_empty_tagged_field_array()
+
+        return FetchRequestTopicV16(
+            topic_id,
+            partitions
+        )
+
+
+@dataclasses.dataclass
+class FetchRequestForgottenTopicsDataV16:
+
+    topic_id: uuid.UUID
+    partitions: typing.List[int]
+
+    @staticmethod
+    def deserialize(reader: buffer.ByteReader):
+        topic_id = reader.read_uuid()
+        partitions = reader.read_compact_array(buffer.ByteReader.read_signed_int)
+
+        reader.skip_empty_tagged_field_array()
+
+        return FetchRequestTopicV16(
+            topic_id,
+            partitions
+        )
+
+
+@dataclasses.dataclass
 class FetchRequestV16(Request):
+
+    max_wait_ms: int
+    min_bytes: int
+    max_bytes: int
+    isolation_level: int
+    session_id: int
+    session_epoch: int
+    topics: typing.List[FetchRequestTopicV16]
+    forgotten_topics_data: typing.List[FetchRequestForgottenTopicsDataV16]
+    rack_id: str
 
     @staticmethod
     def deserialize(header: RequestHeaderV2, reader: buffer.ByteReader):
-        raise NotImplementedError()
+        max_wait_ms = reader.read_signed_int()
+        min_bytes = reader.read_signed_int()
+        max_bytes = reader.read_signed_char()
+        isolation_level = reader.read_signed_char()
+        session_id = reader.read_signed_int()
+        session_epoch = reader.read_signed_int()
+        topics = reader.read_compact_array(FetchRequestTopicV16.deserialize)
+        forgotten_topics_data = reader.read_compact_array(FetchRequestForgottenTopicsDataV16.deserialize)
+        rack_id = reader.read_compact_string()
+
+        return FetchRequestV16(
+            header,
+            max_wait_ms,
+            min_bytes,
+            max_bytes,
+            isolation_level,
+            session_id,
+            session_epoch,
+            topics,
+            forgotten_topics_data,
+            rack_id,
+        )
 
 
 class MessageReader:
