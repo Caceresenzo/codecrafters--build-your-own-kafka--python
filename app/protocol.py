@@ -41,29 +41,19 @@ class MessageReader:
         data = self._next_message()
         reader = buffer.ByteReader(data)
 
-        api_key = reader.read_signed_short()
-        api_version = reader.read_signed_short()
+        header = RequestHeaderV2.deserialize(reader)
 
-        correlation_id = reader.read_signed_int()
-        client_id = reader.read_string()
-
-        reader.skip_empty_tagged_field_array()
-
-        header = RequestHeaderV2(
-            api_key,
-            api_version,
-            correlation_id,
-            client_id,
-        )
-
-        deserializer = self.DESERIALIZERS.get((api_key, api_version))
+        index = (header.request_api_key, header.request_api_version)
+        deserializer = self.DESERIALIZERS.get(index)
         if deserializer is None:
             raise ProtocolError(
                 ErrorCode.UNSUPPORTED_VERSION,
-                correlation_id=correlation_id
+                correlation_id=header.correlation_id
             )
 
-        return deserializer(header, reader)
+        body = deserializer(reader)
+
+        return Request(header, body)
 
     def _next_message(self):
         data = self._socket.recv(4)
