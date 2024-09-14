@@ -3,7 +3,7 @@ import typing
 import uuid
 
 from .. import buffer
-from .base import Request, RequestHeaderV2, Response
+from .base import RequestBody, ResponseBody
 from .error import ErrorCode
 
 
@@ -77,7 +77,7 @@ class FetchRequestForgottenTopicsDataV16:
 
 
 @dataclasses.dataclass
-class FetchRequestV16(Request):
+class FetchRequestV16(RequestBody):
 
     max_wait_ms: int
     min_bytes: int
@@ -90,7 +90,7 @@ class FetchRequestV16(Request):
     rack_id: str
 
     @staticmethod
-    def deserialize(header: RequestHeaderV2, reader: buffer.ByteReader):
+    def deserialize(reader: buffer.ByteReader):
         max_wait_ms = reader.read_signed_int()
         min_bytes = reader.read_signed_int()
         max_bytes = reader.read_signed_int()
@@ -104,7 +104,6 @@ class FetchRequestV16(Request):
         reader.skip_empty_tagged_field_array()
 
         return FetchRequestV16(
-            header,
             max_wait_ms,
             min_bytes,
             max_bytes,
@@ -169,7 +168,7 @@ class FetchResponseResponseV16:
 
 
 @dataclasses.dataclass
-class FetchResponseV16(Response):
+class FetchResponseV16(ResponseBody):
 
     throttle_time_ms: int
     error_code: ErrorCode

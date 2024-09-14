@@ -19,25 +19,31 @@ def handle(
 
         print(request)
 
-        if isinstance(request, protocol.ApiVersionsRequestV4):
-            response = protocol.ApiVersionsResponseV4(
-                error_code=protocol.ErrorCode.NONE,
-                api_keys=[
-                    protocol.ApiVersionsResponseKeyV4(
-                        api_key,
-                        version,
-                        version
-                    )
-                    for api_key, version in message_reader.DESERIALIZERS.keys()
-                ],
-                throttle_time_ms=0
+        if isinstance(request.body, protocol.ApiVersionsRequestV4):
+            response = protocol.Response(
+                protocol.ResponseHeaderV0(correlation_id),
+                protocol.ApiVersionsResponseV4(
+                    error_code=protocol.ErrorCode.NONE,
+                    api_keys=[
+                        protocol.ApiVersionsResponseKeyV4(
+                            api_key,
+                            version,
+                            version
+                        )
+                        for api_key, version in message_reader.DESERIALIZERS.keys()
+                    ],
+                    throttle_time_ms=0
+                )
             )
-        elif isinstance(request, protocol.FetchRequestV16):
-            response = protocol.FetchResponseV16(
-                throttle_time_ms=0,
-                error_code=protocol.ErrorCode.NONE,
-                session_id=0,
-                responses=[],
+        elif isinstance(request.body, protocol.FetchRequestV16):
+            response = protocol.Response(
+                protocol.ResponseHeaderV1(correlation_id),
+                protocol.FetchResponseV16(
+                    throttle_time_ms=0,
+                    error_code=protocol.ErrorCode.NONE,
+                    session_id=0,
+                    responses=[],
+                )
             )
         else:
             raise protocol.ProtocolError(
@@ -45,10 +51,8 @@ def handle(
                 correlation_id=correlation_id
             )
 
-        message_writer.send(
-            correlation_id,
-            response
-        )
+        print(response)
+        message_writer.send(response)
     except protocol.ProtocolError as error:
         print(f"[{client_id}] error: {error}")
 
