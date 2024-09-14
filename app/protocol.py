@@ -1,11 +1,36 @@
-import enum
 import dataclasses
+import enum
 import io
 import socket
 import struct
 import typing
 
-from . import varint
+from . import buffer
+
+
+@enum.unique
+class ErrorCode(enum.Enum):
+
+    NONE = 0
+    UNKNOWN_SERVER_ERROR = -1
+    UNSUPPORTED_VERSION = 35
+
+
+class ProtocolError(ValueError):
+
+    def __init__(
+        self,
+        error_code: ErrorCode,
+        *args,
+        correlation_id: typing.Optional[int] = None
+    ):
+        self.error_code = error_code
+        self.correlation_id = correlation_id
+
+        if not len(args):
+            args = (error_code.name, )
+
+        super().__init__(*args)
 
 
 @dataclasses.dataclass
@@ -23,12 +48,11 @@ class Request:
 
 @dataclasses.dataclass
 class ApiVersionsRequestV4(Request):
-
     client_software_name: typing.Optional[str]
     client_software_version: typing.Optional[str]
 
     @staticmethod
-    def parse(header: RequestHeaderV2, reader: "ByteReader"):
+    def deserialize(header: RequestHeaderV2, reader: buffer.ByteReader):
         reader.skip_empty_tagged_field_array()
 
         client_software_name = reader.read_compact_string()
@@ -43,56 +67,51 @@ class ApiVersionsRequestV4(Request):
         )
 
 
-class ByteReader:
+@dataclasses.dataclass
+class Response:
 
-    def __init__(self, data: bytes):
-        self._data = io.BytesIO(data)
+    def serialize(self, writer: buffer.ByteWriter):
+        pass
 
-    def read_signed_short(self):
-        x, = struct.unpack("!h", self._data.read(2))
-        return x
 
-    def read_signed_int(self):
-        x, = struct.unpack("!i", self._data.read(4))
-        return x
+@dataclasses.dataclass
+class ApiVersionsResponseKeyV4:
+    api_key: int
+    min_version: int
+    max_version: int
 
-    def read_unsigned_varint(self):
-        return varint.read(self._data)
+    def serialize(self, writer: buffer.ByteWriter):
+        writer.write_signed_short(self.api_key)
+        writer.write_signed_short(self.min_version)
+        writer.write_signed_short(self.max_version)
+        writer.skip_empty_tagged_field_array()
 
-    def read_string(self):
-        length = self.read_signed_short()
 
-        if length == -1:
-            return None
+@dataclasses.dataclass
+class ApiVersionsResponseV4(Response):
+    api_keys: typing.List[ApiVersionsResponseKeyV4]
+    throttle_time_ms: int
 
-        return self._data.read(length).decode("utf-8")
-
-    def read_compact_string(self):
-        length = self.read_unsigned_varint()
-
-        if length == 0:
-            return None
-
-        return self._data.read(length - 1).decode("utf-8")
-
-    def skip_empty_tagged_field_array(self):
-        self.read_unsigned_varint()
+    def serialize(self, writer: buffer.ByteWriter):
+        print(self.api_keys)
+        writer.write_compact_array(self.api_keys, ApiVersionsResponseKeyV4.serialize)
+        writer.skip_empty_tagged_field_array()
 
 
 class MessageReader:
 
-    REGISTRY = {
-        (18, 4): ApiVersionsRequestV4
+    DESERIALIZERS = {
+        (18, 4): ApiVersionsRequestV4.deserialize
     }
 
     def __init__(self, socket: socket.socket):
-        self.socket = socket
+        self._socket = socket
 
     def next(self) -> Request:
-        message_size, = struct.unpack("!i", self.socket.recv(4))
-        data = self.socket.recv(message_size)
+        message_size, = struct.unpack("!i", self._socket.recv(4))
+        data = self._socket.recv(message_size)
 
-        reader = ByteReader(data)
+        reader = buffer.ByteReader(data)
 
         api_key = reader.read_signed_short()
         api_version = reader.read_signed_short()
@@ -110,32 +129,58 @@ class MessageReader:
         if api_version not in [0, 1, 2, 3, 4]:
             raise ProtocolError(
                 ErrorCode.UNSUPPORTED_VERSION,
-                header=header
+                correlation_id=correlation_id
             )
 
-        print(header)
-
-        clazz = self.REGISTRY[(api_key, api_version)]
-        return clazz.parse(header, reader)
+        deserializer = self.DESERIALIZERS[(api_key, api_version)]
+        return deserializer(header, reader)
 
 
-class ErrorCode(enum.Enum):
+class MessageWriter:
 
-    UNSUPPORTED_VERSION = 35
+    SERIALIZERS = {
+        (ApiVersionsResponseV4): ApiVersionsResponseV4.serialize
+    }
 
+    def __init__(self, socket: socket.socket):
+        self._socket = socket
 
-class ProtocolError(ValueError):
-
-    def __init__(
+    def send(
         self,
-        error_code: ErrorCode,
-        *args,
-        header: typing.Optional[RequestHeaderV2]
+        correlation_id: int,
+        response: Response
     ):
-        self.error_code = error_code
-        self.header = header
+        writer = buffer.ByteWriter()
+        response.serialize(writer)
 
-        if not len(args):
-            args = (error_code.name, )
+        self._send(
+            correlation_id,
+            ErrorCode.NONE,
+            writer.bytes
+        )
 
-        super().__init__(*args)
+    def send_error(
+        self,
+        correlation_id: int,
+        error_code: ErrorCode
+    ):
+        self._send(
+            correlation_id,
+            error_code,
+            bytes()
+        )
+
+    def _send(
+        self,
+        correlation_id: int,
+        error_code: ErrorCode,
+        body: bytes
+    ):
+        self._socket.send(struct.pack(
+            "!iih",
+            4 + 2 + len(body),
+            correlation_id,
+            error_code.value,
+        ))
+
+        self._socket.send(body)

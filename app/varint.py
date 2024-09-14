@@ -1,7 +1,7 @@
 import typing
 
 
-def read(stream: typing.BinaryIO):
+def read_unsigned(stream: typing.BinaryIO):
     result = 0
     shift = 0
 
@@ -22,3 +22,15 @@ def read(stream: typing.BinaryIO):
             raise ValueError("varint is too long")
 
     return result
+
+
+def write_unsigned(stream: typing.BinaryIO, value: int):
+    while True:
+        to_write = value & 0x7F
+        value >>= 7
+
+        if value:
+            stream.write(bytes([to_write | 0x80]))
+        else:
+            stream.write(bytes([to_write]))
+            break
