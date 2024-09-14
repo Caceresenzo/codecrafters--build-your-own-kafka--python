@@ -65,7 +65,8 @@ class MessageReader:
 
         if len(data) != message_size:
             raise EOFError("message size does not match")
-
+        
+        print("read", data.hex())
         return data
 
 
