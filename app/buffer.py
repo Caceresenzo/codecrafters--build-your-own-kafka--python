@@ -29,7 +29,7 @@ class ByteReader:
         return x
 
     def read_signed_long(self):
-        x, = struct.unpack("!l", self.read(8))
+        x, = struct.unpack("!q", self.read(8))
         return x
 
     def read_unsigned_varint(self):
@@ -87,10 +87,13 @@ class ByteWriter:
         self.write(struct.pack("!i", value))
 
     def write_signed_long(self, value: int):
-        self.write(struct.pack("!l", value))
+        self.write(struct.pack("!q", value))
 
     def write_unsigned_varint(self, value: int):
         varint.write_unsigned(self._data, value)
+
+    def write_uuid(self, value: uuid.UUID):
+        self.write(value.bytes)
 
     def write_compact_array(
         self,

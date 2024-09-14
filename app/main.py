@@ -1,9 +1,38 @@
 import os
 import socket
+import typing
 
 from . import protocol
 
 PORT = 9092
+
+
+def _handle_fetch(request: protocol.FetchRequestV16):
+    responses: typing.List[protocol.FetchResponseResponseV16] = []
+
+    for topic in request.topics:
+        responses.append(protocol.FetchResponseResponseV16(
+            topic.topic_id,
+            [
+                protocol.FetchResponseResponsePartitionV16(
+                    partition_index=0,
+                    error_code=protocol.ErrorCode.UNKNOWN_TOPIC_ID,
+                    high_watermark=0,
+                    last_stable_offset=0,
+                    log_start_offset=0,
+                    aborted_transactions=[],
+                    preferred_read_replica=0,
+                    records=bytes(),
+                )
+            ]
+        ))
+
+    return protocol.FetchResponseV16(
+        throttle_time_ms=0,
+        error_code=protocol.ErrorCode.NONE,
+        session_id=0,
+        responses=responses,
+    )
 
 
 def handle(
@@ -38,12 +67,7 @@ def handle(
         elif isinstance(request.body, protocol.FetchRequestV16):
             response = protocol.Response(
                 protocol.ResponseHeaderV1(correlation_id),
-                protocol.FetchResponseV16(
-                    throttle_time_ms=0,
-                    error_code=protocol.ErrorCode.NONE,
-                    session_id=0,
-                    responses=[],
-                )
+                _handle_fetch(request.body),
             )
         else:
             raise protocol.ProtocolError(

@@ -147,7 +147,7 @@ class FetchResponseResponsePartitionV16:
         writer.write_signed_long(self.high_watermark)
         writer.write_signed_long(self.last_stable_offset)
         writer.write_signed_long(self.log_start_offset)
-        writer.write_compact_array(self.partitions, FetchResponseResponsePartitionAbortedTransactionV16.serialize)
+        writer.write_compact_array(self.aborted_transactions, FetchResponseResponsePartitionAbortedTransactionV16.serialize)
         writer.write_signed_int(self.preferred_read_replica)
         writer.write_compact_records(self.records)
 
