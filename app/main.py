@@ -14,14 +14,23 @@ def main():
     print(f"connected: {client_address}")
 
     message_reader = protocol.MessageReader(client_socket)
-    request = message_reader.next()
-    print(request)
+    try:
+        request = message_reader.next()
+        print(request)
 
-    if isinstance(request, protocol.ApiVersionsRequestV4):
+        if isinstance(request, protocol.ApiVersionsRequestV4):
+            client_socket.send(struct.pack(
+                "!ii",
+                4,
+                request.header.correlation_id
+            ))
+    except protocol.ProtocolError as error:
+        print(error)
         client_socket.send(struct.pack(
-            "!ii",
-            4,
-            request.header.correlation_id
+            "!iih",
+            6,
+            error.header.correlation_id,
+            error.error_code.value
         ))
 
     client_socket.close()

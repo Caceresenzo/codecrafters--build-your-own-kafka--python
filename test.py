@@ -16,7 +16,7 @@ def encode(lines: typing.List[str]):
 target.send(encode([
     "00 00 00 23",  # message size
     "00 12",  # request api key
-    "00 04",  # request api version
+    "00 08",  # request api version
     "00 00 00 07",  # correlation id
 
     # client id

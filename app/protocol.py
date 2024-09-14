@@ -1,3 +1,4 @@
+import enum
 import dataclasses
 import io
 import socket
@@ -78,7 +79,6 @@ class ByteReader:
         self.read_unsigned_varint()
 
 
-
 class MessageReader:
 
     REGISTRY = {
@@ -107,7 +107,35 @@ class MessageReader:
             client_id,
         )
 
+        if api_version not in [0, 1, 2, 3, 4]:
+            raise ProtocolError(
+                ErrorCode.UNSUPPORTED_VERSION,
+                header=header
+            )
+
         print(header)
 
         clazz = self.REGISTRY[(api_key, api_version)]
         return clazz.parse(header, reader)
+
+
+class ErrorCode(enum.Enum):
+
+    UNSUPPORTED_VERSION = 35
+
+
+class ProtocolError(ValueError):
+
+    def __init__(
+        self,
+        error_code: ErrorCode,
+        *args,
+        header: typing.Optional[RequestHeaderV2]
+    ):
+        self.error_code = error_code
+        self.header = header
+
+        if not len(args):
+            args = (error_code.name, )
+
+        super().__init__(*args)
