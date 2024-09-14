@@ -12,14 +12,13 @@ class ApiVersionsRequestV4(Request):
     client_software_version: typing.Optional[str]
 
     @staticmethod
-    def deserialize(header: RequestHeaderV2, reader: buffer.ByteReader):
+    def deserialize(reader: buffer.ByteReader):
         client_software_name = reader.read_compact_string()
         client_software_version = reader.read_compact_string()
 
         reader.skip_empty_tagged_field_array()
 
         return ApiVersionsRequestV4(
-            header,
             client_software_name,
             client_software_version,
         )
