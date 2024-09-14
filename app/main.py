@@ -7,6 +7,7 @@ PORT = 9092
 
 
 def handle(
+    client_id: int,
     client_socket: socket.socket,
 ):
     message_reader = protocol.MessageReader(client_socket)
@@ -20,7 +21,8 @@ def handle(
 
         if isinstance(request, protocol.ApiVersionsRequestV4):
             response = protocol.ApiVersionsResponseV4(
-                [
+                error_code=protocol.ErrorCode.NONE,
+                api_keys=[
                     protocol.ApiVersionsResponseKeyV4(
                         api_key,
                         version,
@@ -28,7 +30,14 @@ def handle(
                     )
                     for api_key, version in message_reader.DESERIALIZERS.keys()
                 ],
-                0
+                throttle_time_ms=0
+            )
+        elif isinstance(request, protocol.FetchRequestV16):
+            response = protocol.FetchResponseV16(
+                throttle_time_ms=0,
+                error_code=protocol.ErrorCode.NONE,
+                session_id=0,
+                responses=[],
             )
         else:
             raise protocol.ProtocolError(
@@ -41,6 +50,8 @@ def handle(
             response
         )
     except protocol.ProtocolError as error:
+        print(f"[{client_id}] error: {error}")
+
         message_writer.send_error(
             error.correlation_id,
             error.error_code
@@ -67,7 +78,10 @@ def main():
         else:
             try:
                 while True:
-                    handle(client_socket)
+                    handle(
+                        client_id,
+                        client_socket
+                    )
             except EOFError as error:
                 print(f"[{client_id}] eof: {error}")
 

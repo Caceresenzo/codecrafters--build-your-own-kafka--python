@@ -1,8 +1,11 @@
 import io
 import struct
 import typing
+import uuid
 
 from . import varint
+
+T = typing.TypeVar("T")
 
 
 class ByteReader:
@@ -13,6 +16,10 @@ class ByteReader:
     def read(self, n: int):
         return self._data.read(n)
 
+    def read_signed_char(self):
+        x, = struct.unpack("!b", self.read(1))
+        return x
+
     def read_signed_short(self):
         x, = struct.unpack("!h", self.read(2))
         return x
@@ -21,8 +28,15 @@ class ByteReader:
         x, = struct.unpack("!i", self.read(4))
         return x
 
+    def read_signed_long(self):
+        x, = struct.unpack("!l", self.read(8))
+        return x
+
     def read_unsigned_varint(self):
         return varint.read_unsigned(self._data)
+
+    def read_uuid(self):
+        return uuid.UUID(bytes=self.read(16))
 
     def read_string(self):
         length = self.read_signed_short()
@@ -43,8 +57,19 @@ class ByteReader:
     def skip_empty_tagged_field_array(self):
         self.read_unsigned_varint()
 
+    def read_compact_array(
+        self,
+        deserializer: typing.Callable[["ByteWriter"], T]
+    ) -> typing.Optional[typing.List[T]]:
+        length = self.read_unsigned_varint()
 
-T = typing.TypeVar("T")
+        if length == 0:
+            return None
+
+        return [
+            deserializer(self)
+            for _ in range(length - 1)
+        ]
 
 
 class ByteWriter:
@@ -60,6 +85,9 @@ class ByteWriter:
 
     def write_signed_int(self, value: int):
         self.write(struct.pack("!i", value))
+
+    def write_signed_long(self, value: int):
+        self.write(struct.pack("!l", value))
 
     def write_unsigned_varint(self, value: int):
         varint.write_unsigned(self._data, value)
@@ -77,6 +105,17 @@ class ByteWriter:
 
         for item in items:
             serializer(item, self)
+
+    def write_compact_records(
+        self,
+        records: bytes,
+    ):
+        if records is None:
+            self.write_unsigned_varint(0)
+            return
+
+        self.write_unsigned_varint(len(records) + 1)
+        self.write(records)
 
     def skip_empty_tagged_field_array(self):
         self.write_unsigned_varint(0)
