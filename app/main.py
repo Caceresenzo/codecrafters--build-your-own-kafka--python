@@ -1,6 +1,8 @@
 import struct
 import socket
 
+from . import protocol
+
 PORT = 9092
 
 
@@ -10,12 +12,17 @@ def main():
     client_socket, client_address = server_socket.accept()
     
     print(f"connected: {client_address}")
-    client_socket.recv(1024)
-    client_socket.send(struct.pack(
-        "!ii",
-        0,
-        7
-    ))
+
+    message_reader = protocol.MessageReader(client_socket)
+    request = message_reader.next()
+    print(request)
+
+    if isinstance(request, protocol.ApiVersionsRequestV4):
+        client_socket.send(struct.pack(
+            "!ii",
+            4,
+            request.header.correlation_id
+        ))
 
     client_socket.close()
 
