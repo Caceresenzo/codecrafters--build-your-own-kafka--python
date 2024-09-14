@@ -41,29 +41,19 @@ class MessageReader:
         data = self._next_message()
         reader = buffer.ByteReader(data)
 
-        api_key = reader.read_signed_short()
-        api_version = reader.read_signed_short()
+        header = RequestHeaderV2.deserialize(reader)
 
-        correlation_id = reader.read_signed_int()
-        client_id = reader.read_string()
-
-        reader.skip_empty_tagged_field_array()
-
-        header = RequestHeaderV2(
-            api_key,
-            api_version,
-            correlation_id,
-            client_id,
-        )
-
-        deserializer = self.DESERIALIZERS.get((api_key, api_version))
+        index = (header.request_api_key, header.request_api_version)
+        deserializer = self.DESERIALIZERS.get(index)
         if deserializer is None:
             raise ProtocolError(
                 ErrorCode.UNSUPPORTED_VERSION,
-                correlation_id=correlation_id
+                correlation_id=header.correlation_id
             )
 
-        return deserializer(header, reader)
+        body = deserializer(reader)
+
+        return Request(header, body)
 
     def _next_message(self):
         data = self._socket.recv(4)
@@ -91,40 +81,28 @@ class MessageWriter:
 
     def send(
         self,
-        correlation_id: int,
         response: Response
     ):
         writer = buffer.ByteWriter()
         response.serialize(writer)
 
-        self._send(
-            correlation_id,
-            ErrorCode.NONE,
-            writer.bytes
-        )
+        bytes = writer.bytes
+
+        self._socket.send(struct.pack(
+            "!i",
+            len(bytes),
+        ))
+
+        self._socket.send(bytes)
 
     def send_error(
         self,
         correlation_id: int,
         error_code: ErrorCode
     ):
-        self._send(
-            correlation_id,
-            error_code,
-            bytes()
-        )
-
-    def _send(
-        self,
-        correlation_id: int,
-        error_code: ErrorCode,
-        body: bytes
-    ):
         self._socket.send(struct.pack(
             "!iih",
-            4 + 2 + len(body),
+            4 + 2,
             correlation_id,
             error_code.value,
         ))
-
-        self._socket.send(body)
