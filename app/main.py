@@ -30,6 +30,13 @@ def handle(
                 ],
                 0
             )
+        elif isinstance(request, protocol.FetchRequestV16):
+            response = protocol.FetchResponseV16(
+                throttle_time_ms=0,
+                error_code=protocol.ErrorCode.NONE,
+                session_id=0,
+                responses=[],
+            )
         else:
             raise protocol.ProtocolError(
                 protocol.ErrorCode.UNSUPPORTED_VERSION,
