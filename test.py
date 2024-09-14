@@ -1,5 +1,6 @@
 import socket
 import typing
+import sys
 
 target = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 target.connect(("localhost", 9092))
@@ -46,6 +47,7 @@ while True:
         break
 
     print(hex(byte[0])[2:].zfill(2), end=" ")
+    sys.stdout.flush()
 
     offset += 1
     if offset % 16 == 0:

@@ -1,6 +1,5 @@
 import dataclasses
 import enum
-import io
 import socket
 import struct
 import typing
@@ -47,6 +46,13 @@ class Request:
 
 
 @dataclasses.dataclass
+class Response:
+
+    def serialize(self, writer: buffer.ByteWriter):
+        pass
+
+
+@dataclasses.dataclass
 class ApiVersionsRequestV4(Request):
     client_software_name: typing.Optional[str]
     client_software_version: typing.Optional[str]
@@ -65,13 +71,6 @@ class ApiVersionsRequestV4(Request):
             client_software_name,
             client_software_version,
         )
-
-
-@dataclasses.dataclass
-class Response:
-
-    def serialize(self, writer: buffer.ByteWriter):
-        pass
 
 
 @dataclasses.dataclass
@@ -98,10 +97,19 @@ class ApiVersionsResponseV4(Response):
         writer.skip_empty_tagged_field_array()
 
 
+@dataclasses.dataclass
+class FetchRequestV16(Request):
+
+    @staticmethod
+    def deserialize(header: RequestHeaderV2, reader: buffer.ByteReader):
+        raise NotImplementedError()
+
+
 class MessageReader:
 
     DESERIALIZERS = {
-        (18, 4): ApiVersionsRequestV4.deserialize
+        (1, 16): FetchRequestV16.deserialize,
+        (18, 4): ApiVersionsRequestV4.deserialize,
     }
 
     def __init__(self, socket: socket.socket):
