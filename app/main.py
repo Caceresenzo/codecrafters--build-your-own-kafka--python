@@ -51,7 +51,7 @@ def _handle_describe_topic_partitions(request: protocol.DescribeTopicPartitionsR
 
     return protocol.DescribeTopicPartitionsResponseV0(
         throttle_time_ms=0,
-        topics=topics
+        topics=topics,
         next_cursor=None,
     )
 
