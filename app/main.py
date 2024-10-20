@@ -1,6 +1,7 @@
 import os
 import socket
 import typing
+import uuid
 
 from . import protocol
 
@@ -29,6 +30,43 @@ def _handle_fetch(request: protocol.FetchRequestV16):
 
     return protocol.FetchResponseV16(
         throttle_time_ms=0,
+        error_code=protocol.ErrorCode.NONE,
+        session_id=0,
+        responses=responses,
+    )
+
+def _handle_describe_topic_partitions(request: protocol.DescribeTopicPartitionsRequestV0):
+    responses: typing.List[protocol.FetchResponseResponseV16] = []
+
+    for topic in request.topics:
+        responses.append(protocol.FetchResponseResponseV16(
+            topic.topic_id,
+            [
+                protocol.FetchResponseResponsePartitionV16(
+                    partition_index=0,
+                    error_code=protocol.ErrorCode.UNKNOWN_TOPIC_ID,
+                    high_watermark=0,
+                    last_stable_offset=0,
+                    log_start_offset=0,
+                    aborted_transactions=[],
+                    preferred_read_replica=0,
+                    records=bytes(),
+                )
+            ]
+        ))
+
+    return protocol.DescribeTopicPartitionsResponseV0(
+        throttle_time_ms=0,
+        topics=[
+            protocol.DescribeTopicPartitionsTopicResponseV0(
+                error_code=protocol.ErrorCode.UNKNOWN_TOPIC,
+                name="foo",
+                topic_id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
+                is_internal=False,
+                partitions=[],
+                topic_authorized_operations=0,
+            )
+        ]
         error_code=protocol.ErrorCode.NONE,
         session_id=0,
         responses=responses,
@@ -68,6 +106,11 @@ def handle(
             response = protocol.Response(
                 protocol.ResponseHeaderV1(correlation_id),
                 _handle_fetch(request.body),
+            )
+        elif isinstance(request.body, protocol.DescribeTopicPartitionsRequestV0):
+            response = protocol.Response(
+                protocol.ResponseHeaderV1(correlation_id),
+                _handle_describe_topic_partitions(request.body),
             )
         else:
             raise protocol.ProtocolError(

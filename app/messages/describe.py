@@ -118,10 +118,6 @@ class DescribeTopicPartitionsTopicResponseV0(RequestBody):
 
     def serialize(self, writer: buffer.ByteWriter):
         writer.write_signed_short(self.error_code.value)
-
-        if self.error_code != ErrorCode.NONE:
-            return
-
         writer.write_compact_string(self.name)
         writer.write_uuid(self.topic_id)
         writer.write_boolean(self.is_internal)
