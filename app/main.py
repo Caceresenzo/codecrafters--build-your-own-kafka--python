@@ -1,6 +1,7 @@
 import os
 import socket
 import typing
+import uuid
 
 from . import protocol
 
@@ -32,6 +33,21 @@ def _handle_fetch(request: protocol.FetchRequestV16):
         error_code=protocol.ErrorCode.NONE,
         session_id=0,
         responses=responses,
+    )
+
+def _handle_describe_topic_partitions(request: protocol.DescribeTopicPartitionsRequestV0):
+    return protocol.DescribeTopicPartitionsResponseV0(
+        throttle_time_ms=0,
+        topics=[
+            protocol.DescribeTopicPartitionsTopicResponseV0(
+                error_code=protocol.ErrorCode.UNKNOWN_TOPIC,
+                name="foo",
+                topic_id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
+                is_internal=False,
+                partitions=[],
+                topic_authorized_operations=0,
+            )
+        ]
     )
 
 
@@ -68,6 +84,11 @@ def handle(
             response = protocol.Response(
                 protocol.ResponseHeaderV1(correlation_id),
                 _handle_fetch(request.body),
+            )
+        elif isinstance(request.body, protocol.DescribeTopicPartitionsRequestV0):
+            response = protocol.Response(
+                protocol.ResponseHeaderV1(correlation_id),
+                _handle_describe_topic_partitions(request.body),
             )
         else:
             raise protocol.ProtocolError(
