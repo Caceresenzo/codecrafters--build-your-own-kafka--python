@@ -6,6 +6,7 @@ import typing
 from . import buffer
 from .messages.api_versions import *
 from .messages.base import *
+from .messages.describe import *
 from .messages.error import *
 from .messages.fetch import *
 
@@ -32,6 +33,8 @@ class MessageReader:
     DESERIALIZERS = {
         (1, 16): FetchRequestV16.deserialize,
         (18, 4): ApiVersionsRequestV4.deserialize,
+        (18, 4): ApiVersionsRequestV4.deserialize,
+        (75, 0): DescribeTopicPartitionsRequestV0.deserialize,
     }
 
     def __init__(self, socket: socket.socket):
