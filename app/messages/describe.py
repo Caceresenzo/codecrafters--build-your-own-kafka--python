@@ -3,7 +3,7 @@ import typing
 import uuid
 
 from .. import buffer
-from .base import RequestBody, ResponseBody
+from .base import RequestBody
 from .error import ErrorCode
 
 
@@ -24,19 +24,32 @@ class DescribeTopicPartitionsTopicRequestV0(RequestBody):
 
 
 @dataclasses.dataclass
-class DescribeTopicPartitionsCursorRequestV0(RequestBody):
+class DescribeTopicPartitionsCursorV0(RequestBody):
 
     topic_name: str
     partition_index: int
 
+    def serialize(self, writer: buffer.ByteWriter):
+        if self is None:
+            return writer.write_byte(0xff)
+
+        writer.write_compact_string(self.topic_name)
+        writer.write_signed_int(self.partition_index)
+
+        writer.skip_empty_tagged_field_array()
+
     @staticmethod
     def deserialize(reader: buffer.ByteReader):
+        with reader.mark():
+            if reader.read(1)[0] == 0xff:
+                return None
+
         topic_name = reader.read_compact_string()
         partition_index = reader.read_signed_int()
 
         reader.skip_empty_tagged_field_array()
 
-        return DescribeTopicPartitionsCursorRequestV0(
+        return DescribeTopicPartitionsCursorV0(
             topic_name,
             partition_index,
         )
@@ -47,34 +60,21 @@ class DescribeTopicPartitionsRequestV0(RequestBody):
 
     topics: typing.List[DescribeTopicPartitionsTopicRequestV0]
     response_partition_limit: int
-    next_cursor: DescribeTopicPartitionsCursorRequestV0
+    next_cursor: DescribeTopicPartitionsCursorV0
 
     @staticmethod
     def deserialize(reader: buffer.ByteReader):
         topics = reader.read_compact_array(DescribeTopicPartitionsTopicRequestV0.deserialize)
         response_partition_limit = reader.read_signed_int()
-        cursor = DescribeTopicPartitionsCursorRequestV0.deserialize(reader)
+        next_cursor = DescribeTopicPartitionsCursorV0.deserialize(reader)
 
         reader.skip_empty_tagged_field_array()
 
-        return DescribeTopicPartitionsResponseV0(
+        return DescribeTopicPartitionsRequestV0(
             topics,
             response_partition_limit,
-            cursor,
+            next_cursor,
         )
-
-
-@dataclasses.dataclass
-class DescribeTopicPartitionsNextCursorResponseV0(RequestBody):
-
-    topic_name: str
-    partition_index: int
-
-    def serialize(self, writer: buffer.ByteWriter):
-        writer.write_compact_string(self.topic_name)
-        writer.write_signed_int(self.partition_index)
-
-        writer.skip_empty_tagged_field_array()
 
 
 @dataclasses.dataclass
@@ -92,10 +92,6 @@ class DescribeTopicPartitionsTopicPartitionResponseV0(RequestBody):
 
     def serialize(self, writer: buffer.ByteWriter):
         writer.write_signed_short(self.error_code.value)
-
-        if self.error_code != ErrorCode.NONE:
-            return
-
         writer.write_signed_int(self.partition_index)
         writer.write_signed_int(self.leader_id)
         writer.write_signed_int(self.leader_epoch)
@@ -118,15 +114,13 @@ class DescribeTopicPartitionsTopicResponseV0(RequestBody):
 
     def serialize(self, writer: buffer.ByteWriter):
         writer.write_signed_short(self.error_code.value)
-
-        if self.error_code != ErrorCode.NONE:
-            return
-
         writer.write_compact_string(self.name)
         writer.write_uuid(self.topic_id)
         writer.write_boolean(self.is_internal)
         writer.write_compact_array(self.partitions, DescribeTopicPartitionsTopicPartitionResponseV0.serialize)
         writer.write_signed_int(self.topic_authorized_operations)
+
+        writer.skip_empty_tagged_field_array()
 
 
 @dataclasses.dataclass
@@ -134,13 +128,20 @@ class DescribeTopicPartitionsResponseV0(RequestBody):
 
     throttle_time_ms: int
     topics: typing.List[DescribeTopicPartitionsTopicResponseV0]
-    next_cursor: DescribeTopicPartitionsNextCursorResponseV0
+    next_cursor: DescribeTopicPartitionsCursorV0
+
+    def serialize(self, writer: buffer.ByteWriter):
+        writer.write_signed_int(self.throttle_time_ms)
+        writer.write_compact_array(self.topics, DescribeTopicPartitionsTopicResponseV0.serialize)
+        DescribeTopicPartitionsCursorV0.serialize(self.next_cursor, writer)
+
+        writer.skip_empty_tagged_field_array()
 
     @staticmethod
     def deserialize(reader: buffer.ByteReader):
         throttle_time_ms = reader.read_signed_int()
         topics = reader.read_compact_array(DescribeTopicPartitionsTopicResponseV0.deserialize)
-        next_cursor = DescribeTopicPartitionsNextCursorResponseV0.deserialize(reader)
+        next_cursor = DescribeTopicPartitionsCursorV0.deserialize(reader)
 
         reader.skip_empty_tagged_field_array()
 
@@ -149,10 +150,3 @@ class DescribeTopicPartitionsResponseV0(RequestBody):
             topics,
             next_cursor,
         )
-
-    def serialize(self, writer: buffer.ByteWriter):
-        writer.write_signed_int(self.throttle_time_ms)
-        writer.write_compact_array(self.topics, DescribeTopicPartitionsTopicResponseV0.serialize)
-        self.next_cursor.serialize(writer)
-
-        writer.skip_empty_tagged_field_array()
