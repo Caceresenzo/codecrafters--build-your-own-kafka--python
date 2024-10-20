@@ -32,7 +32,9 @@ class DescribeTopicPartitionsCursorRequestV0(RequestBody):
     @staticmethod
     def deserialize(reader: buffer.ByteReader):
         topic_name = reader.read_compact_string()
-        partition_index = reader.read_signed_int()
+
+        if topic_name is not None:
+            partition_index = reader.read_signed_int()
 
         reader.skip_empty_tagged_field_array()
 
@@ -118,10 +120,6 @@ class DescribeTopicPartitionsTopicResponseV0(RequestBody):
 
     def serialize(self, writer: buffer.ByteWriter):
         writer.write_signed_short(self.error_code.value)
-
-        if self.error_code != ErrorCode.NONE:
-            return
-
         writer.write_compact_string(self.name)
         writer.write_uuid(self.topic_id)
         writer.write_boolean(self.is_internal)
