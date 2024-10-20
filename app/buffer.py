@@ -1,3 +1,4 @@
+import contextlib
 import io
 import struct
 import typing
@@ -71,6 +72,15 @@ class ByteReader:
             for _ in range(length - 1)
         ]
 
+    @contextlib.contextmanager
+    def mark(self):
+        offset = self._data.tell()
+
+        try:
+            yield
+        finally:
+            self._data.seek(offset)
+
 
 class ByteWriter:
 
@@ -81,7 +91,10 @@ class ByteWriter:
         self._data.write(bytes)
 
     def write_boolean(self, value: bool):
-        self.write(int(value))
+        self.write_byte(int(value))
+
+    def write_byte(self, value: int):
+        self.write(bytes([value]))
 
     def write_signed_short(self, value: int):
         self.write(struct.pack("!h", value))
