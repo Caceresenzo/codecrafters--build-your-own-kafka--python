@@ -1,3 +1,4 @@
+import contextlib
 import io
 import struct
 import typing
@@ -70,6 +71,14 @@ class ByteReader:
             deserializer(self)
             for _ in range(length - 1)
         ]
+
+    @contextlib.contextmanager
+    def mark(self):
+        offset = self._data.tell()
+        try:
+            yield
+        finally:
+            self._data.seek(offset)
 
 
 class ByteWriter:
