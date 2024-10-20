@@ -80,6 +80,9 @@ class ByteWriter:
     def write(self, bytes: bytes):
         self._data.write(bytes)
 
+    def write_boolean(self, value: bool):
+        self.write(int(value))
+
     def write_signed_short(self, value: int):
         self.write(struct.pack("!h", value))
 
@@ -94,6 +97,24 @@ class ByteWriter:
 
     def write_uuid(self, value: uuid.UUID):
         self.write(value.bytes)
+
+    def write_string(self, value: typing.Optional[str]):
+        if value is None:
+            return self.write_signed_short(-1)
+
+        bytes = value.encode("utf-8")
+
+        self.write_signed_short(len(bytes))
+        self.write(bytes)
+
+    def write_compact_string(self, value: typing.Optional[str]):
+        if value is None:
+            return self.write_unsigned_varint(0)
+
+        bytes = value.encode("utf-8")
+
+        self.write_unsigned_varint(len(bytes) + 1)
+        self.write(bytes)
 
     def write_compact_array(
         self,
