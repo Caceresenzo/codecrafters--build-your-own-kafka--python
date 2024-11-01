@@ -84,16 +84,16 @@ def _handle_fetch(request: protocol.message.FetchRequestV16):
             topic_request.topic_id,
             [
                 protocol.message.FetchResponseResponsePartitionV16(
-                    partition_index=0,
+                    partition_index=partition_request.partition,
                     error_code=protocol.ErrorCode.NONE,
                     high_watermark=0,
                     last_stable_offset=0,
                     log_start_offset=0,
                     aborted_transactions=[],
                     preferred_read_replica=0,
-                    records=_read_batches_bytes(topic.name, partition.id),
+                    records=_read_batches_bytes(topic.name, partition_request.partition),
                 )
-                for partition in partitions_per_topic_id[topic.id]
+                for partition_request in topic_request.partitions
             ]
         ))
 
