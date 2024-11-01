@@ -84,7 +84,7 @@ def _handle_fetch(request: protocol.message.FetchRequestV16):
             topic_request.topic_id,
             [
                 protocol.message.FetchResponseResponsePartitionV16(
-                    partition_index=0,
+                    partition_index=partition.id,
                     error_code=protocol.ErrorCode.NONE,
                     high_watermark=0,
                     last_stable_offset=0,
