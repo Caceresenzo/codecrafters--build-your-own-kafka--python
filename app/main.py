@@ -37,13 +37,13 @@ def _handle_fetch(request: protocol.message.FetchRequestV16):
     topics, partitions = _read_batches()
 
     topic_per_uuid = {
-        topic.uuid: topic
+        topic.id: topic
         for topic in topics
     }
 
     responses: typing.List[protocol.message.FetchResponseResponseV16] = []
     for topic_request in request.topics:
-        topic = topic_per_uuid.get(topic_request.uuid)
+        topic = topic_per_uuid.get(topic_request.topic_id)
 
         if topic is None:
             responses.append(protocol.message.FetchResponseResponseV16(
