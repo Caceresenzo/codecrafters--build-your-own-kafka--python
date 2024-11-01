@@ -9,35 +9,7 @@ from . import protocol, buffer
 PORT = 9092
 
 
-def _handle_fetch(request: protocol.message.FetchRequestV16):
-    responses: typing.List[protocol.message.FetchResponseResponseV16] = []
-
-    for topic in request.topics:
-        responses.append(protocol.message.FetchResponseResponseV16(
-            topic.topic_id,
-            [
-                protocol.message.FetchResponseResponsePartitionV16(
-                    partition_index=0,
-                    error_code=protocol.ErrorCode.UNKNOWN_TOPIC_ID,
-                    high_watermark=0,
-                    last_stable_offset=0,
-                    log_start_offset=0,
-                    aborted_transactions=[],
-                    preferred_read_replica=0,
-                    records=bytes(),
-                )
-            ]
-        ))
-
-    return protocol.message.FetchResponseV16(
-        throttle_time_ms=0,
-        error_code=protocol.ErrorCode.NONE,
-        session_id=0,
-        responses=responses,
-    )
-
-
-def _handle_describe_topic_partitions(request: protocol.message.DescribeTopicPartitionsRequestV0):
+def _read_batches():
     topics: typing.List[protocol.record.TopicRecord] = []
     partitions: typing.List[protocol.record.PartitionRecord] = []
 
@@ -57,6 +29,66 @@ def _handle_describe_topic_partitions(request: protocol.message.DescribeTopicPar
                 topics.append(record)
             if isinstance(record, protocol.record.PartitionRecord):
                 partitions.append(record)
+    
+    return topics, partitions
+
+
+def _handle_fetch(request: protocol.message.FetchRequestV16):
+    topics, partitions = _read_batches()
+
+    topic_per_uuid = {
+        topic.uuid: topic
+        for topic in topics
+    }
+
+    responses: typing.List[protocol.message.FetchResponseResponseV16] = []
+    for topic_request in request.topics:
+        topic = topic_per_uuid.get(topic_request.uuid)
+
+        if topic is None:
+            responses.append(protocol.message.FetchResponseResponseV16(
+                topic_request.topic_id,
+                [
+                    protocol.message.FetchResponseResponsePartitionV16(
+                        partition_index=0,
+                        error_code=protocol.ErrorCode.UNKNOWN_TOPIC_ID,
+                        high_watermark=0,
+                        last_stable_offset=0,
+                        log_start_offset=0,
+                        aborted_transactions=[],
+                        preferred_read_replica=0,
+                        records=bytes(),
+                    )
+                ]
+            ))
+            continue
+
+        responses.append(protocol.message.FetchResponseResponseV16(
+            topic_request.topic_id,
+            [
+                protocol.message.FetchResponseResponsePartitionV16(
+                    partition_index=0,
+                    error_code=protocol.ErrorCode.NONE,
+                    high_watermark=0,
+                    last_stable_offset=0,
+                    log_start_offset=0,
+                    aborted_transactions=[],
+                    preferred_read_replica=0,
+                    records=bytes(),
+                )
+            ]
+        ))
+
+    return protocol.message.FetchResponseV16(
+        throttle_time_ms=0,
+        error_code=protocol.ErrorCode.NONE,
+        session_id=0,
+        responses=responses,
+    )
+
+
+def _handle_describe_topic_partitions(request: protocol.message.DescribeTopicPartitionsRequestV0):
+    topics, partitions = _read_batches()
 
     topic_per_name = {
         topic.name: topic
