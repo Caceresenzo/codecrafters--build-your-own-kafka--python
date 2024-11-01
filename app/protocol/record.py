@@ -18,24 +18,28 @@ class Record:
         key = reader.read(key_length - 1) if key_length else None
         # key = reader.read_compact_bytes()
 
-        _value_length = reader.read_signed_varint()
+        value_length = reader.read_signed_varint()
+        value = reader.read(value_length)
 
-        record_frame_version = reader.read_signed_char()
-        record_type = reader.read_signed_char()
-        record_version = reader.read_signed_char()
+        record_reader = buffer.ByteReader(value)
+        record_frame_version = record_reader.read_signed_char()
+        record_type = record_reader.read_signed_char()
+        record_version = record_reader.read_signed_char()
 
         match record_type:
             case 2:
-                record = TopicRecord.deserialize(reader)
+                record = TopicRecord.deserialize(record_reader)
 
             case 3:
-                record = PartitionRecord.deserialize(reader)
+                record = PartitionRecord.deserialize(record_reader)
 
             case 12:
-                record = FeatureLevelRecord.deserialize(reader)
+                record = FeatureLevelRecord.deserialize(record_reader)
 
             case _:
                 raise ValueError(f"unknown record type: {record_type}")
+
+        assert record_reader.eof
 
         headers = reader.read_compact_dict(
             buffer.ByteReader.read_compact_string,

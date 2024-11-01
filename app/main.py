@@ -9,14 +9,25 @@ from . import protocol, buffer
 PORT = 9092
 
 
-def _read_batches():
+def _read_batches_bytes(
+    topic_name="__cluster_metadata",
+    partition_index=0
+):
+    cluster_meta_data_path = f"/tmp/kraft-combined-logs/{topic_name}-{partition_index}/00000000000000000000.log"
+    os.system(f"cat {cluster_meta_data_path} | base64")
+
+    with open(cluster_meta_data_path, "rb") as fd:
+        return fd.read()
+
+
+def _read_batches(
+    topic_name="__cluster_metadata",
+    partition_index=0
+):
     topics: typing.List[protocol.record.TopicRecord] = []
     partitions: typing.List[protocol.record.PartitionRecord] = []
 
-    cluster_meta_data_path = "/tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log"
-    os.system(f"cat {cluster_meta_data_path} | base64")
-    with open(cluster_meta_data_path, "rb") as fd:
-        reader = buffer.ByteReader(fd.read())
+    reader = buffer.ByteReader(_read_batches_bytes(topic_name, partition_index))
 
     while not reader.eof:
         batch = protocol.record.Batch.deserialize(reader)
@@ -29,7 +40,7 @@ def _read_batches():
                 topics.append(record)
             if isinstance(record, protocol.record.PartitionRecord):
                 partitions.append(record)
-    
+
     return topics, partitions
 
 
@@ -39,6 +50,12 @@ def _handle_fetch(request: protocol.message.FetchRequestV16):
     topic_per_uuid = {
         topic.id: topic
         for topic in topics
+    }
+
+    def by_topic_id(x): return x.topic_id
+    partitions_per_topic_id = {
+        topic_id: sorted(grouper, key=lambda x: x.id)
+        for topic_id, grouper in itertools.groupby(sorted(partitions, key=by_topic_id), by_topic_id)
     }
 
     responses: typing.List[protocol.message.FetchResponseResponseV16] = []
@@ -74,8 +91,9 @@ def _handle_fetch(request: protocol.message.FetchRequestV16):
                     log_start_offset=0,
                     aborted_transactions=[],
                     preferred_read_replica=0,
-                    records=bytes(),
+                    records=_read_batches_bytes(topic.name, partition.id),
                 )
+                for partition in partitions_per_topic_id[topic.id]
             ]
         ))
 
@@ -95,7 +113,7 @@ def _handle_describe_topic_partitions(request: protocol.message.DescribeTopicPar
         for topic in topics
     }
 
-    by_topic_id = lambda x: x.topic_id
+    def by_topic_id(x): return x.topic_id
     partitions_per_topic_id = {
         topic_id: sorted(grouper, key=lambda x: x.id)
         for topic_id, grouper in itertools.groupby(sorted(partitions, key=by_topic_id), by_topic_id)
@@ -234,4 +252,5 @@ def main():
 
 
 if __name__ == "__main__":
+    os.system("find /tmp/kraft-combined-logs")
     main()
