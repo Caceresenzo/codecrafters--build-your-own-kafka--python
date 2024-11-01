@@ -9,11 +9,14 @@ from . import protocol, buffer
 PORT = 9092
 
 
-def _read_batches():
+def _read_batches(
+    topic_name="__cluster_metadata",
+    partition_index=0
+):
     topics: typing.List[protocol.record.TopicRecord] = []
     partitions: typing.List[protocol.record.PartitionRecord] = []
 
-    cluster_meta_data_path = "/tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log"
+    cluster_meta_data_path = f"/tmp/kraft-combined-logs/{topic_name}-{partition_index}/00000000000000000000.log"
     os.system(f"cat {cluster_meta_data_path} | base64")
     with open(cluster_meta_data_path, "rb") as fd:
         reader = buffer.ByteReader(fd.read())
@@ -29,7 +32,7 @@ def _read_batches():
                 topics.append(record)
             if isinstance(record, protocol.record.PartitionRecord):
                 partitions.append(record)
-    
+
     return topics, partitions
 
 
@@ -95,7 +98,7 @@ def _handle_describe_topic_partitions(request: protocol.message.DescribeTopicPar
         for topic in topics
     }
 
-    by_topic_id = lambda x: x.topic_id
+    def by_topic_id(x): return x.topic_id
     partitions_per_topic_id = {
         topic_id: sorted(grouper, key=lambda x: x.id)
         for topic_id, grouper in itertools.groupby(sorted(partitions, key=by_topic_id), by_topic_id)
@@ -234,4 +237,5 @@ def main():
 
 
 if __name__ == "__main__":
+    os.system("find /tmp/kraft-combined-logs")
     main()
