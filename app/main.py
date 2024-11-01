@@ -29,7 +29,7 @@ def _read_batches():
                 topics.append(record)
             if isinstance(record, protocol.record.PartitionRecord):
                 partitions.append(record)
-    
+
     return topics, partitions
 
 
@@ -95,7 +95,7 @@ def _handle_describe_topic_partitions(request: protocol.message.DescribeTopicPar
         for topic in topics
     }
 
-    by_topic_id = lambda x: x.topic_id
+    def by_topic_id(x): return x.topic_id
     partitions_per_topic_id = {
         topic_id: sorted(grouper, key=lambda x: x.id)
         for topic_id, grouper in itertools.groupby(sorted(partitions, key=by_topic_id), by_topic_id)
@@ -234,4 +234,5 @@ def main():
 
 
 if __name__ == "__main__":
+    os.system("find /tmp/kraft-combined-logs")
     main()
