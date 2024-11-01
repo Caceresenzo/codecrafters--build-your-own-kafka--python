@@ -1,9 +1,9 @@
 import dataclasses
 import typing
 
-from .. import buffer
+from ... import buffer
+from ..error import ErrorCode
 from .base import RequestBody, ResponseBody
-from .error import ErrorCode
 
 
 @dataclasses.dataclass

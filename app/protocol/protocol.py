@@ -3,12 +3,12 @@ import socket
 import struct
 import typing
 
-from . import buffer
-from .messages.api_versions import *
-from .messages.base import *
-from .messages.describe import *
-from .messages.error import *
-from .messages.fetch import *
+from .. import buffer
+from .error import *
+from .message.api_versions import *
+from .message.base import *
+from .message.describe import *
+from .message.fetch import *
 
 
 class ProtocolError(ValueError):
@@ -68,7 +68,7 @@ class MessageReader:
 
         if len(data) != message_size:
             raise EOFError("message size does not match")
-        
+
         print("read", data.hex())
         return data
 

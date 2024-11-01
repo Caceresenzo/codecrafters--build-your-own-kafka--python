@@ -1,7 +1,7 @@
 import dataclasses
 import typing
 
-from .. import buffer
+from ... import buffer
 
 
 class RequestHeader:

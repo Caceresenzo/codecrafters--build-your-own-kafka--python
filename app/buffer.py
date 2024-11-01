@@ -7,6 +7,8 @@ import uuid
 from . import varint
 
 T = typing.TypeVar("T")
+K = typing.TypeVar("K")
+V = typing.TypeVar("V")
 
 
 class ByteReader:
@@ -29,12 +31,22 @@ class ByteReader:
         x, = struct.unpack("!i", self.read(4))
         return x
 
+    def read_unsigned_int(self):
+        x, = struct.unpack("!I", self.read(4))
+        return x
+
     def read_signed_long(self):
         x, = struct.unpack("!q", self.read(8))
         return x
 
+    def read_signed_varlong(self):
+        return varint.read_signed_long(self._data)
+
+    def read_signed_varint(self):
+        return varint.read_signed_int(self._data)
+
     def read_unsigned_varint(self):
-        return varint.read_unsigned(self._data)
+        return varint.read_unsigned_int(self._data)
 
     def read_uuid(self):
         return uuid.UUID(bytes=self.read(16))
@@ -58,6 +70,20 @@ class ByteReader:
     def skip_empty_tagged_field_array(self):
         self.read_unsigned_varint()
 
+    def read_array(
+        self,
+        deserializer: typing.Callable[["ByteWriter"], T]
+    ) -> typing.Optional[typing.List[T]]:
+        length = self.read_signed_int()
+
+        if length == -1:
+            return None
+
+        return [
+            deserializer(self)
+            for _ in range(length)
+        ]
+
     def read_compact_array(
         self,
         deserializer: typing.Callable[["ByteWriter"], T]
@@ -72,6 +98,37 @@ class ByteReader:
             for _ in range(length - 1)
         ]
 
+    def read_bytes(self):
+        length = self.read_signed_int()
+
+        if length == -1:
+            return None
+
+        return self.read(length)
+
+    def read_compact_bytes(self):
+        length = self.read_unsigned_varint()
+
+        if length == 1:
+            return None
+    
+        return self.read(length - 1)
+
+    def read_compact_dict(
+        self,
+        key_deserializer: typing.Callable[["ByteWriter"], K],
+        value_deserializer: typing.Callable[["ByteWriter"], V],
+    ) -> typing.Optional[typing.Dict[K, V]]:
+        length = self.read_signed_varint()
+
+        if length == 0:
+            return None
+
+        return {
+            key_deserializer(self): value_deserializer(self)
+            for _ in range(length - 1)
+        }
+
     @contextlib.contextmanager
     def mark(self):
         offset = self._data.tell()
@@ -80,6 +137,11 @@ class ByteReader:
             yield
         finally:
             self._data.seek(offset)
+
+    @property
+    def eof(self):
+        with self.mark():
+            return len(self.read(1)) == 0
 
 
 class ByteWriter:
@@ -106,7 +168,7 @@ class ByteWriter:
         self.write(struct.pack("!q", value))
 
     def write_unsigned_varint(self, value: int):
-        varint.write_unsigned(self._data, value)
+        varint.write_unsigned_int(self._data, value)
 
     def write_uuid(self, value: uuid.UUID):
         self.write(value.bytes)

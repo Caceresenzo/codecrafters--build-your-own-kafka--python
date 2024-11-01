@@ -2,9 +2,13 @@ import dataclasses
 import typing
 import uuid
 
-from .. import buffer
+from ... import buffer
+from ..error import ErrorCode
 from .base import RequestBody
-from .error import ErrorCode
+
+
+def _serialize_signed_int(value: int, writer: buffer.ByteWriter):
+    writer.write_signed_int(value)
 
 
 @dataclasses.dataclass
@@ -95,11 +99,13 @@ class DescribeTopicPartitionsTopicPartitionResponseV0(RequestBody):
         writer.write_signed_int(self.partition_index)
         writer.write_signed_int(self.leader_id)
         writer.write_signed_int(self.leader_epoch)
-        writer.write_compact_array(self.replica_nodes, writer.write_signed_int)
-        writer.write_compact_array(self.isr_nodes, writer.write_signed_int)
-        writer.write_compact_array(self.eligible_leader_replicas, writer.write_signed_int)
-        writer.write_compact_array(self.last_known_elr, writer.write_signed_int)
-        writer.write_compact_array(self.offline_replicas, writer.write_signed_int)
+        writer.write_compact_array(self.replica_nodes, _serialize_signed_int)
+        writer.write_compact_array(self.isr_nodes, _serialize_signed_int)
+        writer.write_compact_array(self.eligible_leader_replicas, _serialize_signed_int)
+        writer.write_compact_array(self.last_known_elr, _serialize_signed_int)
+        writer.write_compact_array(self.offline_replicas, _serialize_signed_int)
+
+        writer.skip_empty_tagged_field_array()
 
 
 @dataclasses.dataclass
